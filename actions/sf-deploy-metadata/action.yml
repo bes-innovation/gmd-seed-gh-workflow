@@ -103,16 +103,20 @@ runs:
         TOTAL_TESTS=$(jq -r '.result.numberTestsTotal // empty' deploy-result.json)
         TEST_ERRORS=$(jq -r '.result.numberTestErrors // 0' deploy-result.json)
         if [ -n "$TOTAL_TESTS" ] && [ "$TOTAL_TESTS" != "0" ]; then
-          if [ "$TEST_ERRORS" = "0" ]; then
+          if [ "$TEST_ERRORS" != "0" ]; then
+            echo "tests-summary=$COMPLETED / $TOTAL_TESTS completed · $TEST_ERRORS failed" >> "$GITHUB_OUTPUT"
+          elif [ "$COMPLETED" = "$TOTAL_TESTS" ]; then
             echo "tests-summary=$COMPLETED / $TOTAL_TESTS passed" >> "$GITHUB_OUTPUT"
           else
-            echo "tests-summary=$COMPLETED / $TOTAL_TESTS completed · $TEST_ERRORS failed" >> "$GITHUB_OUTPUT"
+            echo "tests-summary=$COMPLETED / $TOTAL_TESTS completed" >> "$GITHUB_OUTPUT"
           fi
         else
           echo "tests-summary=" >> "$GITHUB_OUTPUT"
         fi
 
-        ERROR_MSG=$(jq -r '.errorMessage // .message // empty' deploy-result.json | tr '\n' ' ')
+        # .result.errorMessage for a deploy/start failure; top-level .message
+        # for a thrown CLI error (e.g. FailedValidationError has no .result).
+        ERROR_MSG=$(jq -r '.result.errorMessage // .message // empty' deploy-result.json | tr '\n' ' ')
         echo "error-message=$ERROR_MSG" >> "$GITHUB_OUTPUT"
 
         echo "started-at=$(jq -r '.result.startDate // empty' deploy-result.json | sed -E 's/T/ /; s/\.[0-9]+Z$/ UTC/')" >> "$GITHUB_OUTPUT"

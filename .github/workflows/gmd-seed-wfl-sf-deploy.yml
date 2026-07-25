@@ -79,6 +79,13 @@ jobs:
             echo "url=" >> "$GITHUB_OUTPUT"
           fi
 
+      # Salesforce's own startDate isn't known yet at this point (the deploy
+      # hasn't been submitted) -- wall-clock time is the best we have here.
+      - name: Record job start time
+        id: job_started
+        if: steps.teams_check.outputs.configured == 'true'
+        run: echo "now=$(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> "$GITHUB_OUTPUT"
+
       # Runs only once the environment's required reviewers have approved.
       # Skipped entirely if TEAMS_WEBHOOK_URL isn't configured on this environment.
       - name: Notify Teams - deployment starting
@@ -92,6 +99,7 @@ jobs:
           branch: ${{ github.ref_name }}
           pull-request: ${{ steps.pr.outputs.reference }}
           pull-request-url: ${{ steps.pr.outputs.url }}
+          started-at: ${{ steps.job_started.outputs.now }}
 
       - name: Checkout caller repository
         uses: actions/checkout@v4
