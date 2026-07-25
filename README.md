@@ -150,12 +150,21 @@ on:
 
 jobs:
   deploy:
+    permissions:
+      contents: read
+      pull-requests: read  # needed for the reusable workflow's PR lookup (Teams card)
     uses: bes-innovation/gmd-seed-gh-workflow/.github/workflows/gmd-seed-wfl-sf-deploy.yml@v1
     with:
       environment: qa
       target-org: qa
     secrets: inherit
 ```
+
+> A caller job's default token permissions can't grant more than the
+> organization's default Actions token policy allows. If that's set to
+> "Read repository contents" only, `gmd-seed-wfl-sf-deploy.yml` will fail
+> to resolve with `pull-requests: none` unless the caller job declares
+> `permissions:` explicitly, as above.
 
 ### Example: deploy to PROD with quick-deploy + backpromotion
 
@@ -169,6 +178,9 @@ on:
 
 jobs:
   deploy-prod:
+    permissions:
+      contents: read
+      pull-requests: read
     uses: bes-innovation/gmd-seed-gh-workflow/.github/workflows/gmd-seed-wfl-sf-deploy.yml@v1
     with:
       environment: prod
@@ -178,6 +190,9 @@ jobs:
 
   backpromote:
     needs: deploy-prod
+    permissions:
+      contents: write
+      pull-requests: write
     uses: bes-innovation/gmd-seed-gh-workflow/.github/workflows/gmd-seed-wfl-backpromote.yml@v1
 ```
 
