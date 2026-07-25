@@ -50,10 +50,18 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
     steps:
+      # secrets can't be referenced directly in `if:` conditions, so check
+      # presence here (env: does allow secrets) and gate on this step's output.
+      - name: Check Teams webhook configured
+        id: teams_check
+        env:
+          WEBHOOK: ${{ secrets.TEAMS_WEBHOOK_URL }}
+        run: echo "configured=$([ -n "$WEBHOOK" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
       # Runs only once the environment's required reviewers have approved.
       # Skipped entirely if TEAMS_WEBHOOK_URL isn't configured on this environment.
       - name: Notify Teams - deployment starting
-        if: ${{ secrets.TEAMS_WEBHOOK_URL != '' }}
+        if: steps.teams_check.outputs.configured == 'true'
         uses: bes-innovation/gmd-seed-gh-workflow/actions/teams-notify@v1
         with:
           webhook-url: ${{ secrets.TEAMS_WEBHOOK_URL }}
@@ -107,7 +115,7 @@ jobs:
           check-only: "false"
 
       - name: Notify Teams - deployment succeeded
-        if: ${{ success() && secrets.TEAMS_WEBHOOK_URL != '' }}
+        if: success() && steps.teams_check.outputs.configured == 'true'
         uses: bes-innovation/gmd-seed-gh-workflow/actions/teams-notify@v1
         with:
           webhook-url: ${{ secrets.TEAMS_WEBHOOK_URL }}
@@ -116,7 +124,7 @@ jobs:
           details: "Org: ${{ inputs.target-org }} · Branch: ${{ github.ref_name }} · By: ${{ github.actor }}"
 
       - name: Notify Teams - deployment failed
-        if: ${{ failure() && secrets.TEAMS_WEBHOOK_URL != '' }}
+        if: failure() && steps.teams_check.outputs.configured == 'true'
         uses: bes-innovation/gmd-seed-gh-workflow/actions/teams-notify@v1
         with:
           webhook-url: ${{ secrets.TEAMS_WEBHOOK_URL }}
