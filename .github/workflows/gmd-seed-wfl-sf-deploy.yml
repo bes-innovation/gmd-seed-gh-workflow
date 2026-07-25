@@ -51,7 +51,9 @@ jobs:
     environment: ${{ inputs.environment }}
     steps:
       # Runs only once the environment's required reviewers have approved.
+      # Skipped entirely if TEAMS_WEBHOOK_URL isn't configured on this environment.
       - name: Notify Teams - deployment starting
+        if: ${{ secrets.TEAMS_WEBHOOK_URL != '' }}
         uses: bes-innovation/gmd-seed-gh-workflow/actions/teams-notify@v1
         with:
           webhook-url: ${{ secrets.TEAMS_WEBHOOK_URL }}
@@ -105,7 +107,7 @@ jobs:
           check-only: "false"
 
       - name: Notify Teams - deployment succeeded
-        if: success()
+        if: ${{ success() && secrets.TEAMS_WEBHOOK_URL != '' }}
         uses: bes-innovation/gmd-seed-gh-workflow/actions/teams-notify@v1
         with:
           webhook-url: ${{ secrets.TEAMS_WEBHOOK_URL }}
@@ -114,7 +116,7 @@ jobs:
           details: "Org: ${{ inputs.target-org }} · Branch: ${{ github.ref_name }} · By: ${{ github.actor }}"
 
       - name: Notify Teams - deployment failed
-        if: failure()
+        if: ${{ failure() && secrets.TEAMS_WEBHOOK_URL != '' }}
         uses: bes-innovation/gmd-seed-gh-workflow/actions/teams-notify@v1
         with:
           webhook-url: ${{ secrets.TEAMS_WEBHOOK_URL }}
