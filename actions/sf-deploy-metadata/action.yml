@@ -59,6 +59,14 @@ runs:
         EXIT_CODE=$?
         set -e
 
-        cat deploy-result.json
+        echo "::group::Full deploy result (deploy-result.json)"
+        jq . deploy-result.json 2>/dev/null || cat deploy-result.json
+        echo "::endgroup::"
+
+        if [ $EXIT_CODE -ne 0 ]; then
+          ERROR_MSG=$(jq -r '.message // .name // "Unknown error -- see full result above"' deploy-result.json 2>/dev/null)
+          echo "::error::Deploy/validate failed: $ERROR_MSG"
+        fi
+
         echo "job-id=$(jq -r '.result.id // .data.deployId // empty' deploy-result.json)" >> "$GITHUB_OUTPUT"
         exit $EXIT_CODE
