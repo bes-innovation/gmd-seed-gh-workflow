@@ -13,6 +13,10 @@ inputs:
     description: "Apex test level (NoTestRun, RunSpecifiedTests, RunLocalTests, RunAllTestsInOrg)"
     required: false
     default: "RunLocalTests"
+  tests:
+    description: "Space-separated Apex test class names to run -- only used when test-level is RunSpecifiedTests"
+    required: false
+    default: ""
   check-only:
     description: "Validate only, no changes made (true) or deploy for real (false)"
     required: false
@@ -39,11 +43,17 @@ runs:
           COMMAND="validate"
         fi
 
+        TESTS_FLAG=""
+        if [ -n "${{ inputs.tests }}" ]; then
+          TESTS_FLAG="--tests ${{ inputs.tests }}"
+        fi
+
         set +e
         sf project deploy "$COMMAND" \
           --source-dir "${{ inputs.source-dir }}" \
           --target-org "${{ inputs.target-org }}" \
           --test-level "${{ inputs.test-level }}" \
+          $TESTS_FLAG \
           --wait "${{ inputs.wait }}" \
           --json > deploy-result.json
         EXIT_CODE=$?

@@ -34,6 +34,11 @@ on:
         required: false
         type: string
         default: "RunLocalTests"
+      tests:
+        description: "Space-separated Apex test class names -- only used when test-level is RunSpecifiedTests"
+        required: false
+        type: string
+        default: ""
       use-quick-deploy:
         description: "Validate first, then quick-deploy the validated result instead of re-running tests (GDM recommendation for PROD)"
         required: false
@@ -77,6 +82,7 @@ jobs:
           target-org: ${{ inputs.target-org }}
           source-dir: ${{ inputs.source-dir }}
           test-level: ${{ inputs.test-level }}
+          tests: ${{ inputs.tests }}
           check-only: "true"
           wait: "60"
 
@@ -95,6 +101,7 @@ jobs:
           target-org: ${{ inputs.target-org }}
           source-dir: ${{ inputs.source-dir }}
           test-level: ${{ inputs.test-level }}
+          tests: ${{ inputs.tests }}
           check-only: "false"
 
       - name: Notify Teams - deployment succeeded

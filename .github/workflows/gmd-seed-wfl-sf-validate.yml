@@ -28,6 +28,11 @@ on:
         required: false
         type: string
         default: "RunLocalTests"
+      tests:
+        description: "Space-separated Apex test class names -- only used when test-level is RunSpecifiedTests"
+        required: false
+        type: string
+        default: ""
       severity-threshold:
         description: "PMD severity threshold to fail on (1=highest .. 5=lowest); GDM uses 5 at PR/QA, 3 at UAT"
         required: false
@@ -72,4 +77,5 @@ jobs:
           target-org: ${{ inputs.target-org }}
           source-dir: ${{ inputs.source-dir }}
           test-level: ${{ inputs.test-level }}
+          tests: ${{ inputs.tests }}
           check-only: "true"
