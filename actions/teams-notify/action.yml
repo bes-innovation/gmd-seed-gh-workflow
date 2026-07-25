@@ -1,5 +1,5 @@
 name: "teams-notify"
-description: "Post a status notification to a Microsoft Teams channel via a Workflows (Power Automate) webhook"
+description: "Post a deployment status card to a Microsoft Teams channel via a Workflows (Power Automate) webhook"
 
 inputs:
   webhook-url:
@@ -11,8 +11,50 @@ inputs:
   title:
     description: "Notification title"
     required: true
-  details:
-    description: "Extra context line, e.g. org/environment/actor"
+  environment:
+    description: "GitHub Environment name (e.g. qa, uat, prod)"
+    required: true
+  branch:
+    description: "Branch that triggered the deploy"
+    required: true
+  repository:
+    description: "owner/repo"
+    required: false
+    default: ${{ github.repository }}
+  actor:
+    description: "Who triggered the run"
+    required: false
+    default: ${{ github.actor }}
+  pull-request:
+    description: "Pull request reference, e.g. '#1 . Title' -- omit if this run wasn't triggered by a PR merge"
+    required: false
+    default: ""
+  pull-request-url:
+    description: "URL for the pull-request fact, makes it a link"
+    required: false
+    default: ""
+  started-at:
+    description: "Deploy start time, human-readable (e.g. '2026-07-25 22:44:49 UTC')"
+    required: false
+    default: ""
+  completed-at:
+    description: "Deploy completion time, human-readable -- omit while still in progress"
+    required: false
+    default: ""
+  components-summary:
+    description: "e.g. '31 / 31 deployed · 0 errors'"
+    required: false
+    default: ""
+  tests-summary:
+    description: "e.g. '10 / 10 passed'"
+    required: false
+    default: ""
+  salesforce-url:
+    description: "Salesforce deploy status page URL"
+    required: false
+    default: ""
+  error-message:
+    description: "Failure detail -- shown in a highlighted block, only when status is failure"
     required: false
     default: ""
 
@@ -23,38 +65,85 @@ runs:
       shell: bash
       run: |
         case "${{ inputs.status }}" in
-          started) CARD_COLOR="accent" ;;
-          success) CARD_COLOR="good" ;;
-          failure) CARD_COLOR="attention" ;;
-          *) CARD_COLOR="default" ;;
+          started) COLOR="accent"; EMOJI="\U0001F535" ;;
+          success) COLOR="good"; EMOJI="\U00002705" ;;
+          failure) COLOR="attention"; EMOJI="\U0000274C" ;;
+          *) COLOR="default"; EMOJI="" ;;
         esac
+        EMOJI=$(printf "$EMOJI")
 
         RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
         PAYLOAD=$(jq -n \
           --arg title "${{ inputs.title }}" \
-          --arg details "${{ inputs.details }}" \
-          --arg color "$CARD_COLOR" \
-          --arg url "$RUN_URL" \
-          '{
-            type: "message",
-            attachments: [
-              {
-                contentType: "application/vnd.microsoft.card.adaptive",
-                content: {
-                  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
-                  type: "AdaptiveCard",
-                  version: "1.4",
-                  body: [
-                    { type: "TextBlock", text: $title, weight: "bolder", size: "medium", color: $color },
-                    { type: "TextBlock", text: $details, wrap: true, isSubtle: true }
-                  ],
-                  actions: [
-                    { type: "Action.OpenUrl", title: "View run", url: $url }
-                  ]
-                }
-              }
+          --arg color "$COLOR" \
+          --arg emoji "$EMOJI" \
+          --arg environment "${{ inputs.environment }}" \
+          --arg branch "${{ inputs.branch }}" \
+          --arg repository "${{ inputs.repository }}" \
+          --arg actor "${{ inputs.actor }}" \
+          --arg pr "${{ inputs.pull-request }}" \
+          --arg prUrl "${{ inputs.pull-request-url }}" \
+          --arg startedAt "${{ inputs.started-at }}" \
+          --arg completedAt "${{ inputs.completed-at }}" \
+          --arg components "${{ inputs.components-summary }}" \
+          --arg tests "${{ inputs.tests-summary }}" \
+          --arg sfUrl "${{ inputs.salesforce-url }}" \
+          --arg errorMessage "${{ inputs.error-message }}" \
+          --arg runUrl "$RUN_URL" \
+          '
+          def fact($t; $v): if ($v // "") != "" then {title: ($t + ":"), value: $v} else empty end;
+
+          ($environment) as $envVal
+          | [
+              fact("Environment"; $envVal),
+              fact("Branch"; $branch),
+              fact("Pull request"; if $pr != "" then (if $prUrl != "" then "[" + $pr + "](" + $prUrl + ")" else $pr end) else "" end),
+              fact("Triggered by"; $actor),
+              fact("Repository"; $repository),
+              fact("Started at"; $startedAt),
+              fact("Completed at"; $completedAt),
+              fact("Components"; $components),
+              fact("Apex tests"; $tests),
+              fact("Salesforce"; if $sfUrl != "" then "[View deploy status](" + $sfUrl + ")" else "" end)
+            ] as $facts
+          | [
+              { type: "TextBlock", text: ($emoji + "  " + $title), weight: "bolder", size: "medium", color: $color, wrap: true },
+              { type: "FactSet", facts: $facts }
             ]
-          }')
+            + (
+              if $errorMessage != "" then
+                [{
+                  type: "Container",
+                  style: "attention",
+                  bleed: true,
+                  items: [
+                    { type: "TextBlock", text: "Deploy failed", weight: "bolder", size: "small", color: "attention" },
+                    { type: "TextBlock", text: $errorMessage, wrap: true, fontType: "monospace", size: "small" }
+                  ]
+                }]
+              else []
+              end
+            ) as $body
+          | [
+              { type: "Action.OpenUrl", title: "View GitHub run", url: $runUrl }
+            ]
+            + (if $sfUrl != "" then [{ type: "Action.OpenUrl", title: "View Salesforce deploy", url: $sfUrl }] else [] end) as $actions
+          | {
+              type: "message",
+              attachments: [
+                {
+                  contentType: "application/vnd.microsoft.card.adaptive",
+                  content: {
+                    "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                    type: "AdaptiveCard",
+                    version: "1.4",
+                    body: $body,
+                    actions: $actions
+                  }
+                }
+              ]
+            }
+          ')
 
         curl -sS -X POST -H "Content-Type: application/json" -d "$PAYLOAD" "${{ inputs.webhook-url }}"

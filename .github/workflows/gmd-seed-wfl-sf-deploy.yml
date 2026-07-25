@@ -49,6 +49,9 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       # secrets can't be referenced directly in `if:` conditions, so check
       # presence here (env: does allow secrets) and gate on this step's output.
@@ -57,6 +60,24 @@ jobs:
         env:
           WEBHOOK: ${{ secrets.TEAMS_WEBHOOK_URL }}
         run: echo "configured=$([ -n "$WEBHOOK" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+      # Push events (merges) carry a PR reference via the "list pull requests
+      # associated with a commit" API; direct pushes have none, which is fine
+      # -- the fact is just omitted from the card.
+      - name: Look up associated pull request
+        id: pr
+        if: steps.teams_check.outputs.configured == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PR_JSON=$(gh api "repos/${{ github.repository }}/commits/${{ github.sha }}/pulls" --jq '.[0] // empty')
+          if [ -n "$PR_JSON" ]; then
+            echo "reference=#$(echo "$PR_JSON" | jq -r '.number') · $(echo "$PR_JSON" | jq -r '.title')" >> "$GITHUB_OUTPUT"
+            echo "url=$(echo "$PR_JSON" | jq -r '.html_url')" >> "$GITHUB_OUTPUT"
+          else
+            echo "reference=" >> "$GITHUB_OUTPUT"
+            echo "url=" >> "$GITHUB_OUTPUT"
+          fi
 
       # Runs only once the environment's required reviewers have approved.
       # Skipped entirely if TEAMS_WEBHOOK_URL isn't configured on this environment.
@@ -67,7 +88,10 @@ jobs:
           webhook-url: ${{ secrets.TEAMS_WEBHOOK_URL }}
           status: started
           title: "Deployment started: ${{ inputs.environment }}"
-          details: "Org: ${{ inputs.target-org }} · Branch: ${{ github.ref_name }} · By: ${{ github.actor }}"
+          environment: ${{ inputs.environment }}
+          branch: ${{ github.ref_name }}
+          pull-request: ${{ steps.pr.outputs.reference }}
+          pull-request-url: ${{ steps.pr.outputs.url }}
 
       - name: Checkout caller repository
         uses: actions/checkout@v4
@@ -97,7 +121,8 @@ jobs:
           wait: "60"
 
       - name: Quick-deploy validated result
-        if: inputs.use-quick-deploy
+        id: quick_deploy
+        if: inputs.use-quick-deploy && steps.validate.outcome == 'success'
         uses: bes-innovation/gmd-seed-gh-workflow/actions/sf-quick-deploy@v1
         with:
           target-org: ${{ inputs.target-org }}
@@ -105,6 +130,7 @@ jobs:
           wait: "60"
 
       - name: Deploy metadata
+        id: deploy
         if: ${{ !inputs.use-quick-deploy }}
         uses: bes-innovation/gmd-seed-gh-workflow/actions/sf-deploy-metadata@v1
         with:
@@ -121,7 +147,15 @@ jobs:
           webhook-url: ${{ secrets.TEAMS_WEBHOOK_URL }}
           status: success
           title: "Deployment succeeded: ${{ inputs.environment }}"
-          details: "Org: ${{ inputs.target-org }} · Branch: ${{ github.ref_name }} · By: ${{ github.actor }}"
+          environment: ${{ inputs.environment }}
+          branch: ${{ github.ref_name }}
+          pull-request: ${{ steps.pr.outputs.reference }}
+          pull-request-url: ${{ steps.pr.outputs.url }}
+          started-at: ${{ steps.deploy.outputs.started-at || steps.quick_deploy.outputs.started-at || steps.validate.outputs.started-at }}
+          completed-at: ${{ steps.deploy.outputs.completed-at || steps.quick_deploy.outputs.completed-at || steps.validate.outputs.completed-at }}
+          components-summary: ${{ steps.deploy.outputs.components-summary || steps.quick_deploy.outputs.components-summary || steps.validate.outputs.components-summary }}
+          tests-summary: ${{ steps.deploy.outputs.tests-summary || steps.quick_deploy.outputs.tests-summary || steps.validate.outputs.tests-summary }}
+          salesforce-url: ${{ steps.deploy.outputs.deploy-url || steps.quick_deploy.outputs.deploy-url || steps.validate.outputs.deploy-url }}
 
       - name: Notify Teams - deployment failed
         if: failure() && steps.teams_check.outputs.configured == 'true'
@@ -130,4 +164,13 @@ jobs:
           webhook-url: ${{ secrets.TEAMS_WEBHOOK_URL }}
           status: failure
           title: "Deployment failed: ${{ inputs.environment }}"
-          details: "Org: ${{ inputs.target-org }} · Branch: ${{ github.ref_name }} · By: ${{ github.actor }}"
+          environment: ${{ inputs.environment }}
+          branch: ${{ github.ref_name }}
+          pull-request: ${{ steps.pr.outputs.reference }}
+          pull-request-url: ${{ steps.pr.outputs.url }}
+          started-at: ${{ steps.deploy.outputs.started-at || steps.quick_deploy.outputs.started-at || steps.validate.outputs.started-at }}
+          completed-at: ${{ steps.deploy.outputs.completed-at || steps.quick_deploy.outputs.completed-at || steps.validate.outputs.completed-at }}
+          components-summary: ${{ steps.deploy.outputs.components-summary || steps.quick_deploy.outputs.components-summary || steps.validate.outputs.components-summary }}
+          tests-summary: ${{ steps.deploy.outputs.tests-summary || steps.quick_deploy.outputs.tests-summary || steps.validate.outputs.tests-summary }}
+          salesforce-url: ${{ steps.deploy.outputs.deploy-url || steps.quick_deploy.outputs.deploy-url || steps.validate.outputs.deploy-url }}
+          error-message: ${{ steps.deploy.outputs.error-message || steps.quick_deploy.outputs.error-message || steps.validate.outputs.error-message }}

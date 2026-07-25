@@ -13,13 +13,84 @@ inputs:
     required: false
     default: "60"
 
+outputs:
+  deploy-url:
+    description: "Salesforce deploy status page URL, empty if not available"
+    value: ${{ steps.summary.outputs.deploy-url }}
+  components-summary:
+    description: "Human-readable component deploy summary, e.g. '31 / 31 deployed · 0 errors'"
+    value: ${{ steps.summary.outputs.components-summary }}
+  tests-summary:
+    description: "Human-readable Apex test summary, e.g. '10 / 10 passed'"
+    value: ${{ steps.summary.outputs.tests-summary }}
+  error-message:
+    description: "Top-level error / test-failure message, empty on success"
+    value: ${{ steps.summary.outputs.error-message }}
+  started-at:
+    description: "Deploy start time as reported by Salesforce, e.g. '2026-07-25 22:44:49 UTC'"
+    value: ${{ steps.summary.outputs.started-at }}
+  completed-at:
+    description: "Deploy completion time as reported by Salesforce, empty if it didn't finish"
+    value: ${{ steps.summary.outputs.completed-at }}
+
 runs:
   using: "composite"
   steps:
     - name: Quick-deploy validated job
+      id: deploy
       shell: bash
       run: |
+        set +e
         sf project deploy quick \
           --job-id "${{ inputs.job-id }}" \
           --target-org "${{ inputs.target-org }}" \
-          --wait "${{ inputs.wait }}"
+          --wait "${{ inputs.wait }}" \
+          --json > deploy-result.json
+        EXIT_CODE=$?
+        set -e
+
+        echo "::group::Full deploy result (deploy-result.json)"
+        jq . deploy-result.json 2>/dev/null || cat deploy-result.json
+        echo "::endgroup::"
+
+        if [ $EXIT_CODE -ne 0 ]; then
+          ERROR_MSG=$(jq -r '.message // .name // "Unknown error -- see full result above"' deploy-result.json 2>/dev/null)
+          echo "::error::Quick-deploy failed: $ERROR_MSG"
+        fi
+
+        exit $EXIT_CODE
+
+    - name: Extract deploy summary fields
+      id: summary
+      if: always()
+      shell: bash
+      run: |
+        echo "deploy-url=$(jq -r '.result.deployUrl // empty' deploy-result.json)" >> "$GITHUB_OUTPUT"
+
+        DEPLOYED=$(jq -r '.result.numberComponentsDeployed // empty' deploy-result.json)
+        TOTAL_COMP=$(jq -r '.result.numberComponentsTotal // empty' deploy-result.json)
+        COMP_ERRORS=$(jq -r '.result.numberComponentErrors // empty' deploy-result.json)
+        if [ -n "$DEPLOYED" ]; then
+          echo "components-summary=$DEPLOYED / $TOTAL_COMP deployed · $COMP_ERRORS errors" >> "$GITHUB_OUTPUT"
+        else
+          echo "components-summary=" >> "$GITHUB_OUTPUT"
+        fi
+
+        COMPLETED=$(jq -r '.result.numberTestsCompleted // empty' deploy-result.json)
+        TOTAL_TESTS=$(jq -r '.result.numberTestsTotal // empty' deploy-result.json)
+        TEST_ERRORS=$(jq -r '.result.numberTestErrors // 0' deploy-result.json)
+        if [ -n "$TOTAL_TESTS" ] && [ "$TOTAL_TESTS" != "0" ]; then
+          if [ "$TEST_ERRORS" = "0" ]; then
+            echo "tests-summary=$COMPLETED / $TOTAL_TESTS passed" >> "$GITHUB_OUTPUT"
+          else
+            echo "tests-summary=$COMPLETED / $TOTAL_TESTS completed · $TEST_ERRORS failed" >> "$GITHUB_OUTPUT"
+          fi
+        else
+          echo "tests-summary=" >> "$GITHUB_OUTPUT"
+        fi
+
+        ERROR_MSG=$(jq -r '.errorMessage // .message // empty' deploy-result.json | tr '\n' ' ')
+        echo "error-message=$ERROR_MSG" >> "$GITHUB_OUTPUT"
+
+        echo "started-at=$(jq -r '.result.startDate // empty' deploy-result.json | sed -E 's/T/ /; s/\.[0-9]+Z$/ UTC/')" >> "$GITHUB_OUTPUT"
+        echo "completed-at=$(jq -r '.result.completedDate // empty' deploy-result.json | sed -E 's/T/ /; s/\.[0-9]+Z$/ UTC/')" >> "$GITHUB_OUTPUT"

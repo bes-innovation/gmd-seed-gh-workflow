@@ -102,12 +102,21 @@ which deploy directly.
 
 `gmd-seed-wfl-sf-deploy.yml` posts to Teams on start, success, and failure via
 `actions/teams-notify`, using a `TEAMS_WEBHOOK_URL` secret (same
-per-environment scoping as `SF_AUTH_URL`). This expects a **Teams "Workflows"
+per-environment scoping as the other secrets). Skipped entirely if that
+secret isn't set on the environment. This expects a **Teams "Workflows"
 app** incoming webhook (Adaptive Card payload) — the current Teams-native
 webhook mechanism. If your Teams channel instead uses a legacy "Office 365
 Connector" webhook, the payload format differs and `actions/teams-notify`
 would need a small adjustment (`MessageCard` schema instead of Adaptive
 Card).
+
+Each card shows a status pill + colored title, a fact list (environment,
+branch, the pull request that triggered the merge, actor, repository,
+Salesforce-reported start/completion times), component and Apex test
+counts, and a link to the Salesforce deploy status page. On failure, the
+actual Salesforce error is surfaced inline rather than requiring a log
+dive. The PR reference is looked up automatically from the triggering
+commit — no caller input needed, empty if the push wasn't a PR merge.
 
 ### Example: validate PR on QA
 
