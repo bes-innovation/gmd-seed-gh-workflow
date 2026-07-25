@@ -65,12 +65,11 @@ runs:
       shell: bash
       run: |
         case "${{ inputs.status }}" in
-          started) COLOR="accent"; EMOJI="\U0001F535" ;;
-          success) COLOR="good"; EMOJI="\U00002705" ;;
-          failure) COLOR="attention"; EMOJI="\U0000274C" ;;
+          started) COLOR="accent"; EMOJI="🔵" ;;
+          success) COLOR="good"; EMOJI="✅" ;;
+          failure) COLOR="attention"; EMOJI="❌" ;;
           *) COLOR="default"; EMOJI="" ;;
         esac
-        EMOJI=$(printf "$EMOJI")
 
         RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
 
@@ -107,28 +106,32 @@ runs:
               fact("Apex tests"; $tests),
               fact("Salesforce"; if $sfUrl != "" then "[View deploy status](" + $sfUrl + ")" else "" end)
             ] as $facts
-          | [
-              { type: "TextBlock", text: ($emoji + "  " + $title), weight: "bolder", size: "medium", color: $color, wrap: true },
-              { type: "FactSet", facts: $facts }
-            ]
-            + (
-              if $errorMessage != "" then
-                [{
-                  type: "Container",
-                  style: "attention",
-                  bleed: true,
-                  items: [
-                    { type: "TextBlock", text: "Deploy failed", weight: "bolder", size: "small", color: "attention" },
-                    { type: "TextBlock", text: $errorMessage, wrap: true, fontType: "monospace", size: "small" }
-                  ]
-                }]
-              else []
-              end
+          | (
+              [
+                { type: "TextBlock", text: ($emoji + "  " + $title), weight: "bolder", size: "medium", color: $color, wrap: true },
+                { type: "FactSet", facts: $facts }
+              ]
+              + (
+                if $errorMessage != "" then
+                  [{
+                    type: "Container",
+                    style: "attention",
+                    bleed: true,
+                    items: [
+                      { type: "TextBlock", text: "Deploy failed", weight: "bolder", size: "small", color: "attention" },
+                      { type: "TextBlock", text: $errorMessage, wrap: true, fontType: "monospace", size: "small" }
+                    ]
+                  }]
+                else []
+                end
+              )
             ) as $body
-          | [
-              { type: "Action.OpenUrl", title: "View GitHub run", url: $runUrl }
-            ]
-            + (if $sfUrl != "" then [{ type: "Action.OpenUrl", title: "View Salesforce deploy", url: $sfUrl }] else [] end) as $actions
+          | (
+              [
+                { type: "Action.OpenUrl", title: "View GitHub run", url: $runUrl }
+              ]
+              + (if $sfUrl != "" then [{ type: "Action.OpenUrl", title: "View Salesforce deploy", url: $sfUrl }] else [] end)
+            ) as $actions
           | {
               type: "message",
               attachments: [
