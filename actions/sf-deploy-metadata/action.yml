@@ -39,12 +39,16 @@ runs:
           COMMAND="validate"
         fi
 
+        set +e
         sf project deploy "$COMMAND" \
           --source-dir "${{ inputs.source-dir }}" \
           --target-org "${{ inputs.target-org }}" \
           --test-level "${{ inputs.test-level }}" \
           --wait "${{ inputs.wait }}" \
           --json > deploy-result.json
+        EXIT_CODE=$?
+        set -e
 
         cat deploy-result.json
-        echo "job-id=$(jq -r '.result.id' deploy-result.json)" >> "$GITHUB_OUTPUT"
+        echo "job-id=$(jq -r '.result.id // .data.deployId // empty' deploy-result.json)" >> "$GITHUB_OUTPUT"
+        exit $EXIT_CODE
