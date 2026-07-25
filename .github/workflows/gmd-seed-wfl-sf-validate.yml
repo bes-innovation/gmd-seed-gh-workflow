@@ -48,17 +48,17 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Salesforce CLI
-        uses: idasilva/gmd-seed-gh-workflow/actions/sf-cli-setup@v1
+        uses: bes-innovation/gmd-seed-gh-workflow/actions/sf-cli-setup@v1
 
       - name: Run PMD code analysis
-        uses: idasilva/gmd-seed-gh-workflow/actions/sf-code-analyzer@v1
+        uses: bes-innovation/gmd-seed-gh-workflow/actions/sf-code-analyzer@v1
         with:
           workspace: ${{ inputs.source-dir }}
           severity-threshold: ${{ inputs.severity-threshold }}
           continue-on-error: ${{ inputs.pmd-continue-on-error }}
 
       - name: Authenticate to Salesforce
-        uses: idasilva/gmd-seed-gh-workflow/actions/sf-auth-jwt@v1
+        uses: bes-innovation/gmd-seed-gh-workflow/actions/sf-auth-jwt@v1
         with:
           username: ${{ secrets.SFDX_USERNAME }}
           client-id: ${{ secrets.SFDX_CLIENT_ID }}
@@ -67,7 +67,7 @@ jobs:
           alias: ${{ inputs.target-org }}
 
       - name: Validate deployment (check-only, no changes made)
-        uses: idasilva/gmd-seed-gh-workflow/actions/sf-deploy-metadata@v1
+        uses: bes-innovation/gmd-seed-gh-workflow/actions/sf-deploy-metadata@v1
         with:
           target-org: ${{ inputs.target-org }}
           source-dir: ${{ inputs.source-dir }}

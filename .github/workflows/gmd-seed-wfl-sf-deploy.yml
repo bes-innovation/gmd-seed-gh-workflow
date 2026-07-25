@@ -47,7 +47,7 @@ jobs:
     steps:
       # Runs only once the environment's required reviewers have approved.
       - name: Notify Teams - deployment starting
-        uses: idasilva/gmd-seed-gh-workflow/actions/teams-notify@v1
+        uses: bes-innovation/gmd-seed-gh-workflow/actions/teams-notify@v1
         with:
           webhook-url: ${{ secrets.TEAMS_WEBHOOK_URL }}
           status: started
@@ -58,10 +58,10 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install Salesforce CLI
-        uses: idasilva/gmd-seed-gh-workflow/actions/sf-cli-setup@v1
+        uses: bes-innovation/gmd-seed-gh-workflow/actions/sf-cli-setup@v1
 
       - name: Authenticate to Salesforce
-        uses: idasilva/gmd-seed-gh-workflow/actions/sf-auth-jwt@v1
+        uses: bes-innovation/gmd-seed-gh-workflow/actions/sf-auth-jwt@v1
         with:
           username: ${{ secrets.SFDX_USERNAME }}
           client-id: ${{ secrets.SFDX_CLIENT_ID }}
@@ -72,7 +72,7 @@ jobs:
       - name: Validate deployment
         id: validate
         if: inputs.use-quick-deploy
-        uses: idasilva/gmd-seed-gh-workflow/actions/sf-deploy-metadata@v1
+        uses: bes-innovation/gmd-seed-gh-workflow/actions/sf-deploy-metadata@v1
         with:
           target-org: ${{ inputs.target-org }}
           source-dir: ${{ inputs.source-dir }}
@@ -82,7 +82,7 @@ jobs:
 
       - name: Quick-deploy validated result
         if: inputs.use-quick-deploy
-        uses: idasilva/gmd-seed-gh-workflow/actions/sf-quick-deploy@v1
+        uses: bes-innovation/gmd-seed-gh-workflow/actions/sf-quick-deploy@v1
         with:
           target-org: ${{ inputs.target-org }}
           job-id: ${{ steps.validate.outputs.job-id }}
@@ -90,7 +90,7 @@ jobs:
 
       - name: Deploy metadata
         if: ${{ !inputs.use-quick-deploy }}
-        uses: idasilva/gmd-seed-gh-workflow/actions/sf-deploy-metadata@v1
+        uses: bes-innovation/gmd-seed-gh-workflow/actions/sf-deploy-metadata@v1
         with:
           target-org: ${{ inputs.target-org }}
           source-dir: ${{ inputs.source-dir }}
@@ -99,7 +99,7 @@ jobs:
 
       - name: Notify Teams - deployment succeeded
         if: success()
-        uses: idasilva/gmd-seed-gh-workflow/actions/teams-notify@v1
+        uses: bes-innovation/gmd-seed-gh-workflow/actions/teams-notify@v1
         with:
           webhook-url: ${{ secrets.TEAMS_WEBHOOK_URL }}
           status: success
@@ -108,7 +108,7 @@ jobs:
 
       - name: Notify Teams - deployment failed
         if: failure()
-        uses: idasilva/gmd-seed-gh-workflow/actions/teams-notify@v1
+        uses: bes-innovation/gmd-seed-gh-workflow/actions/teams-notify@v1
         with:
           webhook-url: ${{ secrets.TEAMS_WEBHOOK_URL }}
           status: failure

@@ -9,7 +9,7 @@ name: gmd-seed-wfl-backpromote
 #
 #   backpromote:
 #     needs: deploy-prod
-#     uses: idasilva/gmd-seed-gh-workflow/.github/workflows/gmd-seed-wfl-backpromote.yml@v1
+#     uses: bes-innovation/gmd-seed-gh-workflow/.github/workflows/gmd-seed-wfl-backpromote.yml@v1
 
 on:
   workflow_call:

@@ -121,7 +121,7 @@ on:
 
 jobs:
   validate:
-    uses: idasilva/gmd-seed-gh-workflow/.github/workflows/gmd-seed-wfl-sf-validate.yml@v1
+    uses: bes-innovation/gmd-seed-gh-workflow/.github/workflows/gmd-seed-wfl-sf-validate.yml@v1
     with:
       environment: qa
       target-org: qa
@@ -141,7 +141,7 @@ on:
 
 jobs:
   deploy:
-    uses: idasilva/gmd-seed-gh-workflow/.github/workflows/gmd-seed-wfl-sf-deploy.yml@v1
+    uses: bes-innovation/gmd-seed-gh-workflow/.github/workflows/gmd-seed-wfl-sf-deploy.yml@v1
     with:
       environment: qa
       target-org: qa
@@ -160,7 +160,7 @@ on:
 
 jobs:
   deploy-prod:
-    uses: idasilva/gmd-seed-gh-workflow/.github/workflows/gmd-seed-wfl-sf-deploy.yml@v1
+    uses: bes-innovation/gmd-seed-gh-workflow/.github/workflows/gmd-seed-wfl-sf-deploy.yml@v1
     with:
       environment: prod
       target-org: prod
@@ -169,7 +169,7 @@ jobs:
 
   backpromote:
     needs: deploy-prod
-    uses: idasilva/gmd-seed-gh-workflow/.github/workflows/gmd-seed-wfl-backpromote.yml@v1
+    uses: bes-innovation/gmd-seed-gh-workflow/.github/workflows/gmd-seed-wfl-backpromote.yml@v1
 ```
 
 ### Example: PR title check
@@ -184,7 +184,7 @@ on:
 
 jobs:
   pr-title:
-    uses: idasilva/gmd-seed-gh-workflow/.github/workflows/gmd-seed-wfl-pr-title-check.yml@v1
+    uses: bes-innovation/gmd-seed-gh-workflow/.github/workflows/gmd-seed-wfl-pr-title-check.yml@v1
     with:
       pr_title_regexp: '^(\[PROJ-\d+\])+ (.*)[\n\r]*$'   # swap PROJ for the real ticket-system key(s) once confirmed
 ```
@@ -210,8 +210,8 @@ Use an action directly if you don't need the full orchestrated workflow, e.g.:
 ```yaml
 steps:
   - uses: actions/checkout@v4
-  - uses: idasilva/gmd-seed-gh-workflow/actions/sf-cli-setup@v1
-  - uses: idasilva/gmd-seed-gh-workflow/actions/sf-auth-jwt@v1
+  - uses: bes-innovation/gmd-seed-gh-workflow/actions/sf-cli-setup@v1
+  - uses: bes-innovation/gmd-seed-gh-workflow/actions/sf-auth-jwt@v1
     with:
       username: ${{ secrets.SFDX_USERNAME }}
       client-id: ${{ secrets.SFDX_CLIENT_ID }}
