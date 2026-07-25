@@ -1,0 +1,25 @@
+name: "sf-quick-deploy"
+description: "Quick-deploy a previously validated deploy job -- skips re-running tests, valid within Salesforce's 24h quick-deploy window"
+
+inputs:
+  target-org:
+    description: "Alias or username of the org to deploy into"
+    required: true
+  job-id:
+    description: "Deploy/validate job id returned by sf-deploy-metadata's check-only run"
+    required: true
+  wait:
+    description: "Minutes to wait for the quick deploy to finish"
+    required: false
+    default: "60"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Quick-deploy validated job
+      shell: bash
+      run: |
+        sf project deploy quick \
+          --job-id "${{ inputs.job-id }}" \
+          --target-org "${{ inputs.target-org }}" \
+          --wait "${{ inputs.wait }}"

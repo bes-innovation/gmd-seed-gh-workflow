@@ -1,0 +1,55 @@
+name: gmd-seed-wfl-sf-retrieve
+
+# Caller must use `secrets: inherit` and define a GitHub Environment matching
+# `inputs.environment` (with its own SF_AUTH_URL secret and, optionally,
+# required-reviewer/branch protection rules) in its own repo settings.
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: "GitHub Environment to retrieve from (e.g. staging, production)"
+        required: true
+        type: string
+      target-org:
+        description: "Alias for the org to retrieve from (used for logging/display only)"
+        required: false
+        type: string
+        default: "target-org"
+      manifest-path:
+        description: "Path to the package.xml manifest"
+        required: false
+        type: string
+        default: "manifest/package.xml"
+
+jobs:
+  retrieve:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Checkout caller repository
+        uses: actions/checkout@v4
+
+      - name: Install Salesforce CLI
+        uses: idasilva/gmd-seed-gh-workflow/actions/sf-cli-setup@v1
+
+      - name: Authenticate to Salesforce
+        uses: idasilva/gmd-seed-gh-workflow/actions/sf-auth@v1
+        with:
+          auth-url: ${{ secrets.SF_AUTH_URL }}
+          alias: ${{ inputs.target-org }}
+
+      - name: Retrieve metadata
+        uses: idasilva/gmd-seed-gh-workflow/actions/sf-retrieve-metadata@v1
+        with:
+          target-org: ${{ inputs.target-org }}
+          manifest-path: ${{ inputs.manifest-path }}
+
+      # Deliberately does not auto-commit: retrieved metadata is uploaded as an
+      # artifact for review, not pushed straight to git. Committing bypasses PR
+      # review, which is the exact anti-pattern this pipeline exists to remove.
+      - name: Upload retrieved metadata as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: retrieved-metadata
+          path: force-app

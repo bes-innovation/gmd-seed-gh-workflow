@@ -1,0 +1,75 @@
+name: gmd-seed-wfl-sf-validate
+
+# Caller must use `secrets: inherit` and define a GitHub Environment matching
+# `inputs.environment` in its own repo settings, with:
+#   - SFDX_USERNAME, SFDX_CLIENT_ID, SFDX_INSTANCE_URL as Environment secrets
+#   - SFDX_JWT_KEY as a Repository secret (or Environment secret if the
+#     Connected App differs per org)
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: "GitHub Environment to validate against (e.g. qa, uat)"
+        required: true
+        type: string
+      target-org:
+        description: "Alias for the target org (used for logging/display only)"
+        required: false
+        type: string
+        default: "target-org"
+      source-dir:
+        description: "Path to the source-format directory to validate"
+        required: false
+        type: string
+        default: "force-app"
+      test-level:
+        description: "Apex test level to run during validation"
+        required: false
+        type: string
+        default: "RunLocalTests"
+      severity-threshold:
+        description: "PMD severity threshold to fail on (1=highest .. 5=lowest); GDM uses 5 at PR/QA, 3 at UAT"
+        required: false
+        type: string
+        default: "5"
+      pmd-continue-on-error:
+        description: "Report PMD violations without failing the job. GDM's current PR gate runs with this true -- flip to false once branch protection requires this check (quick win #1)."
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Checkout caller repository
+        uses: actions/checkout@v4
+
+      - name: Install Salesforce CLI
+        uses: idasilva/gmd-seed-gh-workflow/actions/sf-cli-setup@v1
+
+      - name: Run PMD code analysis
+        uses: idasilva/gmd-seed-gh-workflow/actions/sf-code-analyzer@v1
+        with:
+          workspace: ${{ inputs.source-dir }}
+          severity-threshold: ${{ inputs.severity-threshold }}
+          continue-on-error: ${{ inputs.pmd-continue-on-error }}
+
+      - name: Authenticate to Salesforce
+        uses: idasilva/gmd-seed-gh-workflow/actions/sf-auth-jwt@v1
+        with:
+          username: ${{ secrets.SFDX_USERNAME }}
+          client-id: ${{ secrets.SFDX_CLIENT_ID }}
+          instance-url: ${{ secrets.SFDX_INSTANCE_URL }}
+          jwt-key: ${{ secrets.SFDX_JWT_KEY }}
+          alias: ${{ inputs.target-org }}
+
+      - name: Validate deployment (check-only, no changes made)
+        uses: idasilva/gmd-seed-gh-workflow/actions/sf-deploy-metadata@v1
+        with:
+          target-org: ${{ inputs.target-org }}
+          source-dir: ${{ inputs.source-dir }}
+          test-level: ${{ inputs.test-level }}
+          check-only: "true"

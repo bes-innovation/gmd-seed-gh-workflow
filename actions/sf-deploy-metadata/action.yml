@@ -1,0 +1,50 @@
+name: "sf-deploy-metadata"
+description: "Deploy or validate the force-app source against a target org (full deployment of the immutable artifact)"
+
+inputs:
+  target-org:
+    description: "Alias or username of the org to deploy into"
+    required: true
+  source-dir:
+    description: "Path to the source-format directory to deploy"
+    required: false
+    default: "force-app"
+  test-level:
+    description: "Apex test level (NoTestRun, RunSpecifiedTests, RunLocalTests, RunAllTestsInOrg)"
+    required: false
+    default: "RunLocalTests"
+  check-only:
+    description: "Validate only, no changes made (true) or deploy for real (false)"
+    required: false
+    default: "false"
+  wait:
+    description: "Minutes to wait for the deploy/validate to finish"
+    required: false
+    default: "30"
+
+outputs:
+  job-id:
+    description: "Deploy/validate job id -- feed into sf-quick-deploy to reuse a validated result instead of re-running tests"
+    value: ${{ steps.deploy.outputs.job-id }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Deploy or validate metadata
+      id: deploy
+      shell: bash
+      run: |
+        COMMAND="start"
+        if [ "${{ inputs.check-only }}" = "true" ]; then
+          COMMAND="validate"
+        fi
+
+        sf project deploy "$COMMAND" \
+          --source-dir "${{ inputs.source-dir }}" \
+          --target-org "${{ inputs.target-org }}" \
+          --test-level "${{ inputs.test-level }}" \
+          --wait "${{ inputs.wait }}" \
+          --json > deploy-result.json
+
+        cat deploy-result.json
+        echo "job-id=$(jq -r '.result.id' deploy-result.json)" >> "$GITHUB_OUTPUT"

@@ -1,0 +1,32 @@
+name: "sf-code-analyzer"
+description: "Install Salesforce Code Analyzer and run a PMD scan, gating on a severity threshold"
+
+inputs:
+  workspace:
+    description: "Path to scan"
+    required: false
+    default: "force-app"
+  severity-threshold:
+    description: "Fail if a violation at or above this severity is found (1=highest .. 5=lowest). GDM uses 5 at PR/QA, 3 at UAT."
+    required: false
+    default: "5"
+  continue-on-error:
+    description: "Report violations without failing the job (true/false). GDM's current PR gate runs with this set to true -- see quick win #1 in the pipeline doc before flipping it to false."
+    required: false
+    default: "true"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install Salesforce Code Analyzer
+      shell: bash
+      run: echo y | sf plugins install @salesforce/sfdx-scanner
+
+    - name: Run PMD code analysis
+      shell: bash
+      continue-on-error: ${{ inputs.continue-on-error == 'true' }}
+      run: |
+        sf code-analyzer run \
+          --workspace "${{ inputs.workspace }}" \
+          --rule-selector "pmd" \
+          --severity-threshold "${{ inputs.severity-threshold }}"

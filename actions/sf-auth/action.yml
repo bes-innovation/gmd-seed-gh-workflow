@@ -1,0 +1,36 @@
+name: "sf-auth"
+description: "Authenticate the Salesforce CLI to an org using an SFDX Auth URL"
+
+inputs:
+  auth-url:
+    description: "SFDX Auth URL for the target org (pass as a secret, e.g. secrets.SF_AUTH_URL)"
+    required: true
+  alias:
+    description: "Alias to assign the authenticated org"
+    required: false
+    default: "target-org"
+  set-default:
+    description: "Set this org as the default for subsequent sf commands"
+    required: false
+    default: "true"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Authenticate via SFDX Auth URL
+      shell: bash
+      run: |
+        AUTH_FILE="$(mktemp)"
+        echo "${{ inputs.auth-url }}" > "$AUTH_FILE"
+
+        DEFAULT_FLAG=""
+        if [ "${{ inputs.set-default }}" = "true" ]; then
+          DEFAULT_FLAG="--set-default"
+        fi
+
+        sf org login sfdx-url --sfdx-url-file "$AUTH_FILE" --alias "${{ inputs.alias }}" $DEFAULT_FLAG
+        rm -f "$AUTH_FILE"
+
+    - name: Confirm connection
+      shell: bash
+      run: sf org display --target-org "${{ inputs.alias }}"

@@ -1,0 +1,49 @@
+name: gmd-seed-wfl-backpromote
+
+# Opens a PR from main back into develop after a successful PROD deploy, so a
+# hotfix committed to main (Capgemini hotfix track) gets synced back into the
+# ongoing feature line (Cloud Gaia). GDM Release Plan Fase 4-5.
+#
+# Caller triggers this as a follow-up job after gmd-seed-wfl-sf-deploy
+# succeeds against the `prod` environment, e.g.:
+#
+#   backpromote:
+#     needs: deploy-prod
+#     uses: idasilva/gmd-seed-gh-workflow/.github/workflows/gmd-seed-wfl-backpromote.yml@v1
+
+on:
+  workflow_call:
+    inputs:
+      base-branch:
+        description: "Branch to open the backpromotion PR against"
+        required: false
+        type: string
+        default: "develop"
+      head-branch:
+        description: "Branch the backpromotion PR is opened from"
+        required: false
+        type: string
+        default: "main"
+
+jobs:
+  backpromote:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout caller repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Open backpromotion PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr create \
+            --base "${{ inputs.base-branch }}" \
+            --head "${{ inputs.head-branch }}" \
+            --title "Backpromotion: sync ${{ inputs.head-branch }} -> ${{ inputs.base-branch }}" \
+            --body "Automatic PR after a successful PROD deploy. Review for conflicts before merging." \
+          || echo "PR already exists or no differences to backpromote."

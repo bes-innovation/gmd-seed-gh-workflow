@@ -1,0 +1,116 @@
+name: gmd-seed-wfl-sf-deploy
+
+# Caller must use `secrets: inherit` and define a GitHub Environment matching
+# `inputs.environment` in its own repo settings, with:
+#   - SFDX_USERNAME, SFDX_CLIENT_ID, SFDX_INSTANCE_URL as Environment secrets
+#   - SFDX_JWT_KEY as a Repository secret (or Environment secret if the
+#     Connected App differs per org)
+#   - a TEAMS_WEBHOOK_URL secret (Teams "Workflows" incoming webhook)
+#   - "Required reviewers" protection rule enabled on environments that need
+#     a human gate (GDM: PROD) -- THIS is the approval gate. It pauses the
+#     whole job (before any step runs) until approved. There is no separate
+#     approval step in this file; it's a platform feature tied to the
+#     `environment:` key on the job below.
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: "GitHub Environment to deploy against (e.g. qa, uat, prod)"
+        required: true
+        type: string
+      target-org:
+        description: "Alias for the target org (used for logging/display only)"
+        required: false
+        type: string
+        default: "target-org"
+      source-dir:
+        description: "Path to the source-format directory to deploy"
+        required: false
+        type: string
+        default: "force-app"
+      test-level:
+        description: "Apex test level to run during deploy"
+        required: false
+        type: string
+        default: "RunLocalTests"
+      use-quick-deploy:
+        description: "Validate first, then quick-deploy the validated result instead of re-running tests (GDM recommendation for PROD)"
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      # Runs only once the environment's required reviewers have approved.
+      - name: Notify Teams - deployment starting
+        uses: idasilva/gmd-seed-gh-workflow/actions/teams-notify@v1
+        with:
+          webhook-url: ${{ secrets.TEAMS_WEBHOOK_URL }}
+          status: started
+          title: "Deployment started: ${{ inputs.environment }}"
+          details: "Org: ${{ inputs.target-org }} · Branch: ${{ github.ref_name }} · By: ${{ github.actor }}"
+
+      - name: Checkout caller repository
+        uses: actions/checkout@v4
+
+      - name: Install Salesforce CLI
+        uses: idasilva/gmd-seed-gh-workflow/actions/sf-cli-setup@v1
+
+      - name: Authenticate to Salesforce
+        uses: idasilva/gmd-seed-gh-workflow/actions/sf-auth-jwt@v1
+        with:
+          username: ${{ secrets.SFDX_USERNAME }}
+          client-id: ${{ secrets.SFDX_CLIENT_ID }}
+          instance-url: ${{ secrets.SFDX_INSTANCE_URL }}
+          jwt-key: ${{ secrets.SFDX_JWT_KEY }}
+          alias: ${{ inputs.target-org }}
+
+      - name: Validate deployment
+        id: validate
+        if: inputs.use-quick-deploy
+        uses: idasilva/gmd-seed-gh-workflow/actions/sf-deploy-metadata@v1
+        with:
+          target-org: ${{ inputs.target-org }}
+          source-dir: ${{ inputs.source-dir }}
+          test-level: ${{ inputs.test-level }}
+          check-only: "true"
+          wait: "60"
+
+      - name: Quick-deploy validated result
+        if: inputs.use-quick-deploy
+        uses: idasilva/gmd-seed-gh-workflow/actions/sf-quick-deploy@v1
+        with:
+          target-org: ${{ inputs.target-org }}
+          job-id: ${{ steps.validate.outputs.job-id }}
+          wait: "60"
+
+      - name: Deploy metadata
+        if: ${{ !inputs.use-quick-deploy }}
+        uses: idasilva/gmd-seed-gh-workflow/actions/sf-deploy-metadata@v1
+        with:
+          target-org: ${{ inputs.target-org }}
+          source-dir: ${{ inputs.source-dir }}
+          test-level: ${{ inputs.test-level }}
+          check-only: "false"
+
+      - name: Notify Teams - deployment succeeded
+        if: success()
+        uses: idasilva/gmd-seed-gh-workflow/actions/teams-notify@v1
+        with:
+          webhook-url: ${{ secrets.TEAMS_WEBHOOK_URL }}
+          status: success
+          title: "Deployment succeeded: ${{ inputs.environment }}"
+          details: "Org: ${{ inputs.target-org }} · Branch: ${{ github.ref_name }} · By: ${{ github.actor }}"
+
+      - name: Notify Teams - deployment failed
+        if: failure()
+        uses: idasilva/gmd-seed-gh-workflow/actions/teams-notify@v1
+        with:
+          webhook-url: ${{ secrets.TEAMS_WEBHOOK_URL }}
+          status: failure
+          title: "Deployment failed: ${{ inputs.environment }}"
+          details: "Org: ${{ inputs.target-org }} · Branch: ${{ github.ref_name }} · By: ${{ github.actor }}"

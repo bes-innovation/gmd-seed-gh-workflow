@@ -1,0 +1,29 @@
+name: gmd-seed-wfl-pr-title-check
+
+# Validates that a PR title matches a required pattern (default: ticket-number
+# prefixed, e.g. "[PROJ-123] Short description"). Swap `pr_title_regexp` for
+# this client's real ticket-system project keys once confirmed.
+
+on:
+  workflow_call:
+    inputs:
+      pr_title_regexp:
+        description: "Extended regex the PR title must match"
+        required: false
+        type: string
+        default: '^(\[PROJ-\d+\])+ (.*)[\n\r]*$'
+      pr_title:
+        description: "PR title to validate (overrides the triggering event's title, e.g. for edit events)"
+        required: false
+        type: string
+        default: ""
+
+jobs:
+  pr-title-checker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: Slashgear/action-check-pr-title@v4.3.0
+        name: Check PR title format
+        with:
+          regexp: ${{ inputs.pr_title_regexp }}
+          title: ${{ inputs.pr_title != '' && inputs.pr_title || github.event.pull_request.title }}

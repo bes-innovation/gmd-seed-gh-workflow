@@ -1,0 +1,19 @@
+name: "sf-cli-setup"
+description: "Install the Salesforce CLI (sf) on the runner"
+
+inputs:
+  version:
+    description: "npm dist-tag or version to install (e.g. latest, 2.x)"
+    required: false
+    default: "latest"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install Salesforce CLI
+      shell: bash
+      run: npm install --global @salesforce/cli@${{ inputs.version }}
+
+    - name: Verify installation
+      shell: bash
+      run: sf --version

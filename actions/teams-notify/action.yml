@@ -1,0 +1,60 @@
+name: "teams-notify"
+description: "Post a status notification to a Microsoft Teams channel via a Workflows (Power Automate) webhook"
+
+inputs:
+  webhook-url:
+    description: "Teams incoming webhook URL, pass as a secret"
+    required: true
+  status:
+    description: "started, success, or failure"
+    required: true
+  title:
+    description: "Notification title"
+    required: true
+  details:
+    description: "Extra context line, e.g. org/environment/actor"
+    required: false
+    default: ""
+
+runs:
+  using: "composite"
+  steps:
+    - name: Send Teams notification
+      shell: bash
+      run: |
+        case "${{ inputs.status }}" in
+          started) CARD_COLOR="accent" ;;
+          success) CARD_COLOR="good" ;;
+          failure) CARD_COLOR="attention" ;;
+          *) CARD_COLOR="default" ;;
+        esac
+
+        RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+        PAYLOAD=$(jq -n \
+          --arg title "${{ inputs.title }}" \
+          --arg details "${{ inputs.details }}" \
+          --arg color "$CARD_COLOR" \
+          --arg url "$RUN_URL" \
+          '{
+            type: "message",
+            attachments: [
+              {
+                contentType: "application/vnd.microsoft.card.adaptive",
+                content: {
+                  "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                  type: "AdaptiveCard",
+                  version: "1.4",
+                  body: [
+                    { type: "TextBlock", text: $title, weight: "bolder", size: "medium", color: $color },
+                    { type: "TextBlock", text: $details, wrap: true, isSubtle: true }
+                  ],
+                  actions: [
+                    { type: "Action.OpenUrl", title: "View run", url: $url }
+                  ]
+                }
+              }
+            ]
+          }')
+
+        curl -sS -X POST -H "Content-Type: application/json" -d "$PAYLOAD" "${{ inputs.webhook-url }}"

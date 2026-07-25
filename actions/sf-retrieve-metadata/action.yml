@@ -1,0 +1,21 @@
+name: "sf-retrieve-metadata"
+description: "Retrieve metadata from an org into the local project using a manifest"
+
+inputs:
+  target-org:
+    description: "Alias or username of the org to retrieve from"
+    required: true
+  manifest-path:
+    description: "Path to the package.xml manifest"
+    required: false
+    default: "manifest/package.xml"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Retrieve metadata
+      shell: bash
+      run: |
+        sf project retrieve start \
+          --manifest "${{ inputs.manifest-path }}" \
+          --target-org "${{ inputs.target-org }}"

@@ -1,0 +1,52 @@
+name: "sf-auth-jwt"
+description: "Authenticate the Salesforce CLI to an org using the JWT Bearer Flow (Connected App + certificate)"
+
+inputs:
+  username:
+    description: "Integration user username for the target org (pass as a secret, e.g. secrets.SFDX_USERNAME)"
+    required: true
+  client-id:
+    description: "Connected App consumer key (pass as a secret, e.g. secrets.SFDX_CLIENT_ID)"
+    required: true
+  instance-url:
+    description: "Org instance URL -- https://test.salesforce.com for sandboxes, https://login.salesforce.com for production (pass as a secret, e.g. secrets.SFDX_INSTANCE_URL)"
+    required: true
+  jwt-key:
+    description: "Connected App certificate private key, PEM format (pass as a secret, e.g. secrets.SFDX_JWT_KEY)"
+    required: true
+  alias:
+    description: "Alias to assign the authenticated org"
+    required: false
+    default: "target-org"
+  set-default:
+    description: "Set this org as the default for subsequent sf commands"
+    required: false
+    default: "true"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Authenticate via JWT Bearer Flow
+      shell: bash
+      run: |
+        KEY_FILE="$(mktemp)"
+        echo "${{ inputs.jwt-key }}" > "$KEY_FILE"
+
+        DEFAULT_FLAG=""
+        if [ "${{ inputs.set-default }}" = "true" ]; then
+          DEFAULT_FLAG="--set-default"
+        fi
+
+        sf org login jwt \
+          --username "${{ inputs.username }}" \
+          --client-id "${{ inputs.client-id }}" \
+          --instance-url "${{ inputs.instance-url }}" \
+          --jwt-key-file "$KEY_FILE" \
+          --alias "${{ inputs.alias }}" \
+          $DEFAULT_FLAG
+
+        rm -f "$KEY_FILE"
+
+    - name: Confirm connection
+      shell: bash
+      run: sf org display --target-org "${{ inputs.alias }}"
