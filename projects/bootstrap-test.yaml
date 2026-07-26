@@ -1,0 +1,12 @@
+repoName: bootstrap-test
+description: "Test project to validate the bootstrap-project.yml provisioning workflow"
+visibility: public
+
+environments:
+  - name: qa
+    requiredReviewers: false
+
+branchProtection:
+  - branch: development
+    requiredStatusChecks: []
+    requiredApprovingReviewCount: 1
