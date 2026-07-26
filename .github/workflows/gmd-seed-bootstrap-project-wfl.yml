@@ -67,6 +67,17 @@ jobs:
               BRANCH=$(yq ".branchProtection[$i].branch" "$FILE")
               REVIEWS=$(yq ".branchProtection[$i].requiredApprovingReviewCount // 1" "$FILE")
               CHECKS_JSON=$(yq -o=json ".branchProtection[$i].requiredStatusChecks // []" "$FILE")
+
+              # A template repo's clone only ever includes its default branch
+              # (development) -- create any other protected branch here,
+              # pointed at the same initial commit, before protecting it.
+              if ! gh api "repos/$FULL_REPO/branches/$BRANCH" >/dev/null 2>&1; then
+                DEFAULT_BRANCH=$(gh api "repos/$FULL_REPO" --jq '.default_branch')
+                DEFAULT_SHA=$(gh api "repos/$FULL_REPO/git/refs/heads/$DEFAULT_BRANCH" --jq '.object.sha')
+                gh api "repos/$FULL_REPO/git/refs" -f ref="refs/heads/$BRANCH" -f sha="$DEFAULT_SHA" >/dev/null
+                echo "Created missing branch: $BRANCH (from $DEFAULT_BRANCH)"
+              fi
+
               PAYLOAD=$(jq -n --argjson checks "$CHECKS_JSON" --argjson reviews "$REVIEWS" '{
                 required_status_checks: { strict: true, contexts: $checks },
                 enforce_admins: true,
