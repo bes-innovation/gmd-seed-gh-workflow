@@ -1,5 +1,5 @@
 repoName: full-bootstrap-test
-description: "Test project to validate bootstrap with all environments (qa, uat, prod)"
+description: "Test project to validate bootstrap with all environments (qa, uat, prod) and auto-created main branch"
 visibility: public
 
 environments:
