@@ -1,0 +1,19 @@
+repoName: full-bootstrap-test
+description: "Test project to validate bootstrap with all environments (qa, uat, prod)"
+visibility: public
+
+environments:
+  - name: qa
+    requiredReviewers: false
+  - name: uat
+    requiredReviewers: false
+  - name: prod
+    requiredReviewers: true
+
+branchProtection:
+  - branch: development
+    requiredStatusChecks: []
+    requiredApprovingReviewCount: 1
+  - branch: main
+    requiredStatusChecks: []
+    requiredApprovingReviewCount: 1
