@@ -1,4 +1,4 @@
-name: gmd-seed-wfl-sf-retrieve
+name: gmd-seed-sf-retrieve-wfl
 
 # Caller must use `secrets: inherit` and define a GitHub Environment matching
 # `inputs.environment` (with its own SF_AUTH_URL secret and, optionally,

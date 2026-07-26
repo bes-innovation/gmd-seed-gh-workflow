@@ -1,9 +1,9 @@
 name: Bootstrap Salesforce Project
 
-# Runs automatically whenever projects/*.yaml changes on main. Idempotent:
-# re-running against an existing repo skips creation and just re-applies
-# environments and branch protection, so a follow-up config edit is safe
-# to merge again.
+# Runs automatically whenever projects/github-metadata/*.yaml changes on main.
+# Idempotent: re-running against an existing repo skips creation and just
+# re-applies environments and branch protection, so a follow-up config
+# edit is safe to merge again.
 #
 # Needs an ORG_ADMIN_TOKEN secret (PAT with repo-creation rights in the
 # org) -- the default GITHUB_TOKEN can't create new repositories.
@@ -11,7 +11,7 @@ name: Bootstrap Salesforce Project
 on:
   push:
     branches: [main]
-    paths: ['projects/*.yaml']
+    paths: ['projects/github-metadata/*.yaml']
 
 jobs:
   bootstrap:
@@ -25,7 +25,7 @@ jobs:
       - name: Detect changed project configs
         id: changed
         run: |
-          git diff --name-only HEAD^ HEAD -- 'projects/*.yaml' \
+          git diff --name-only HEAD^ HEAD -- 'projects/github-metadata/*.yaml' \
             | grep -v '/_' > changed-files.txt || true
           echo "Changed configs:"
           cat changed-files.txt

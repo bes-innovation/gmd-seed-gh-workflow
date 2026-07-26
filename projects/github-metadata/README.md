@@ -1,8 +1,8 @@
 # Project provisioning
 
 Drop a `<repo-name>.yaml` file in this folder and merge it to `main` —
-`.github/workflows/bootstrap-project.yml` picks up any changed file here
-automatically and provisions the repo: creates it from
+`.github/workflows/gmd-seed-bootstrap-project-wfl.yml` picks up any changed
+file here automatically and provisions the repo: creates it from
 [`salesforce-project-template`](https://github.com/bes-innovation/salesforce-project-template),
 creates the listed GitHub Environments, and applies branch protection.
 
@@ -12,8 +12,9 @@ a repo with that typo'd name (repo creation is otherwise idempotent —
 re-running against an existing repo just skips creation and re-applies
 environments/branch protection).
 
-See `_example.yaml` for the schema (files starting with `_` are ignored
-by the bootstrap workflow — reference only, never provisioned).
+See `_bootstrap-project-definition.yaml` for the schema (files starting
+with `_` are ignored by the bootstrap workflow — reference only, never
+provisioned).
 
 ## Schema
 

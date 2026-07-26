@@ -10,15 +10,16 @@ instead of re-implementing auth/deploy/retrieve logic in their own workflows.
 - `.github/workflows/` — reusable workflows (`workflow_call`) that orchestrate the
   actions above into complete jobs. Must stay flat — GitHub only discovers
   `workflow_call` workflows directly inside `.github/workflows/`, not in subfolders.
-- `projects/` — one `<repo-name>.yaml` per new Salesforce project. Merging a
-  config here auto-provisions that repo (from
+- `projects/github-metadata/` — one `<repo-name>.yaml` per new Salesforce
+  project. Merging a config here auto-provisions that repo (from
   [`salesforce-project-template`](https://github.com/bes-innovation/salesforce-project-template))
-  plus its environments and branch protection, via `bootstrap-project.yml`.
-  See `projects/README.md` for the schema.
+  plus its environments and branch protection, via
+  `gmd-seed-bootstrap-project-wfl.yml`. See `projects/github-metadata/README.md`
+  for the schema.
 
 ## Target architecture
 
-`gmd-seed-wfl-sf-validate.yml` and `gmd-seed-wfl-sf-deploy.yml` follow the
+`gmd-seed-sf-validate-wfl.yml` and `gmd-seed-sf-deploy-wfl.yml` follow the
 pipeline design in `documentation/GDM-DevOps-CICD.pdf` (GDM, 2026-06-11):
 JWT Bearer Flow auth, full `force-app` source deploys (not manifest/delta),
 a PMD quality gate, and a validate→quick-deploy pattern for PROD. **This is
@@ -44,13 +45,13 @@ environment (e.g. Required reviewers on `prod`).
 
 | Workflow | Purpose |
 |---|---|
-| `gmd-seed-wfl-sf-validate.yml` | PMD scan + check-only deploy (`sf project deploy validate`) against a target org, no changes made |
-| `gmd-seed-wfl-sf-deploy.yml` | Deploy `force-app` into a target org; optionally validate-then-quick-deploy instead of re-running tests |
-| `gmd-seed-wfl-backpromote.yml` | Opens a PR from `main` back into `develop` after a PROD deploy, so hotfixes sync back into the feature line |
-| `gmd-seed-wfl-sf-retrieve.yml` | Retrieve metadata from an org, upload as a build artifact for review (baseline bootstrap / drift detection, not part of the promotion flow) |
-| `gmd-seed-wfl-pr-title-check.yml` | Validates PR title format (default: ticket-number prefixed, e.g. `[PROJ-123] ...`) |
+| `gmd-seed-sf-validate-wfl.yml` | PMD scan + check-only deploy (`sf project deploy validate`) against a target org, no changes made |
+| `gmd-seed-sf-deploy-wfl.yml` | Deploy `force-app` into a target org; optionally validate-then-quick-deploy instead of re-running tests |
+| `gmd-seed-backpromote-wfl.yml` | Opens a PR from `main` back into `develop` after a PROD deploy, so hotfixes sync back into the feature line |
+| `gmd-seed-sf-retrieve-wfl.yml` | Retrieve metadata from an org, upload as a build artifact for review (baseline bootstrap / drift detection, not part of the promotion flow) |
+| `gmd-seed-pr-title-check-wfl.yml` | Validates PR title format (default: ticket-number prefixed, e.g. `[PROJ-123] ...`) |
 
-`gmd-seed-wfl-sf-validate.yml` and `gmd-seed-wfl-sf-deploy.yml` authenticate
+`gmd-seed-sf-validate-wfl.yml` and `gmd-seed-sf-deploy-wfl.yml` authenticate
 via `actions/sf-auth-jwt` (JWT Bearer Flow). The original SFDX Auth URL
 option is still available as `actions/sf-auth` for workflows that haven't
 moved to JWT yet — see "Authenticating" below.
@@ -61,7 +62,7 @@ having to explicitly map differently-named secrets per env.
 
 ### Approval gate (deploy only)
 
-`gmd-seed-wfl-sf-deploy.yml` doesn't implement approval in YAML — it relies on
+`gmd-seed-sf-deploy-wfl.yml` doesn't implement approval in YAML — it relies on
 the environment's own **Required reviewers** protection rule (Settings →
 Environments → `<environment>` → Deployment protection rules). Since the job
 declares `environment: ${{ inputs.environment }}`, GitHub pauses the entire
@@ -78,7 +79,7 @@ Two options, both available as standalone actions:
 | `actions/sf-auth-jwt` | JWT Bearer Flow (Connected App + X.509 cert), no interactive login | `SFDX_USERNAME`, `SFDX_CLIENT_ID`, `SFDX_INSTANCE_URL` (Environment secrets, one set per env) + `SFDX_JWT_KEY` (Repository secret, or Environment secret if the Connected App differs per org) |
 | `actions/sf-auth` | SFDX Auth URL | `SF_AUTH_URL` (same secret name, different value per environment) |
 
-`gmd-seed-wfl-sf-validate.yml` and `gmd-seed-wfl-sf-deploy.yml` are wired to
+`gmd-seed-sf-validate-wfl.yml` and `gmd-seed-sf-deploy-wfl.yml` are wired to
 `sf-auth-jwt`, matching the GDM target design. If you have a caller repo
 still set up with an `SF_AUTH_URL` secret, either keep it on the old
 workflow revision or swap the auth step to `sf-auth` in a fork/copy of
@@ -86,7 +87,7 @@ these workflows — both actions stay in this repo so nothing is lost.
 
 ### Quality gate (PMD)
 
-`gmd-seed-wfl-sf-validate.yml` runs `actions/sf-code-analyzer` before
+`gmd-seed-sf-validate-wfl.yml` runs `actions/sf-code-analyzer` before
 authenticating. GDM's real pipeline runs this with `continue-on-error: true`
 today — it reports violations but doesn't block the PR; `check-only` deploy
 validation is the actual hard gate. `severity-threshold` defaults to `5`
@@ -96,7 +97,7 @@ false` once the team is ready to block on it.
 
 ### Quick-deploy (PROD)
 
-`gmd-seed-wfl-sf-deploy.yml` takes a `use-quick-deploy` input. When `true`,
+`gmd-seed-sf-deploy-wfl.yml` takes a `use-quick-deploy` input. When `true`,
 it runs `sf project deploy validate` (with tests) and then
 `sf project deploy quick` on the resulting job id, instead of running tests
 twice. Salesforce's quick-deploy window is 24h from the validate. This is
@@ -105,7 +106,7 @@ which deploy directly.
 
 ### Teams notifications (deploy only)
 
-`gmd-seed-wfl-sf-deploy.yml` posts to Teams on start, success, and failure via
+`gmd-seed-sf-deploy-wfl.yml` posts to Teams on start, success, and failure via
 `actions/teams-notify`, using a `TEAMS_WEBHOOK_URL` secret (same
 per-environment scoping as the other secrets). Skipped entirely if that
 secret isn't set on the environment. This expects a **Teams "Workflows"
@@ -135,7 +136,7 @@ on:
 
 jobs:
   validate:
-    uses: bes-innovation/gmd-seed-gh-workflow/.github/workflows/gmd-seed-wfl-sf-validate.yml@v1
+    uses: bes-innovation/gmd-seed-gh-workflow/.github/workflows/gmd-seed-sf-validate-wfl.yml@v1
     with:
       environment: qa
       target-org: qa
@@ -158,7 +159,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: read  # needed for the reusable workflow's PR lookup (Teams card)
-    uses: bes-innovation/gmd-seed-gh-workflow/.github/workflows/gmd-seed-wfl-sf-deploy.yml@v1
+    uses: bes-innovation/gmd-seed-gh-workflow/.github/workflows/gmd-seed-sf-deploy-wfl.yml@v1
     with:
       environment: qa
       target-org: qa
@@ -167,7 +168,7 @@ jobs:
 
 > A caller job's default token permissions can't grant more than the
 > organization's default Actions token policy allows. If that's set to
-> "Read repository contents" only, `gmd-seed-wfl-sf-deploy.yml` will fail
+> "Read repository contents" only, `gmd-seed-sf-deploy-wfl.yml` will fail
 > to resolve with `pull-requests: none` unless the caller job declares
 > `permissions:` explicitly, as above.
 
@@ -186,7 +187,7 @@ jobs:
     permissions:
       contents: read
       pull-requests: read
-    uses: bes-innovation/gmd-seed-gh-workflow/.github/workflows/gmd-seed-wfl-sf-deploy.yml@v1
+    uses: bes-innovation/gmd-seed-gh-workflow/.github/workflows/gmd-seed-sf-deploy-wfl.yml@v1
     with:
       environment: prod
       target-org: prod
@@ -198,7 +199,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-    uses: bes-innovation/gmd-seed-gh-workflow/.github/workflows/gmd-seed-wfl-backpromote.yml@v1
+    uses: bes-innovation/gmd-seed-gh-workflow/.github/workflows/gmd-seed-backpromote-wfl.yml@v1
 ```
 
 ### Example: PR title check
@@ -213,7 +214,7 @@ on:
 
 jobs:
   pr-title:
-    uses: bes-innovation/gmd-seed-gh-workflow/.github/workflows/gmd-seed-wfl-pr-title-check.yml@v1
+    uses: bes-innovation/gmd-seed-gh-workflow/.github/workflows/gmd-seed-pr-title-check-wfl.yml@v1
     with:
       pr_title_regexp: '^(\[PROJ-\d+\])+ (.*)[\n\r]*$'   # swap PROJ for the real ticket-system key(s) once confirmed
 ```

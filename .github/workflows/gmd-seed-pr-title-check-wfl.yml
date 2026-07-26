@@ -1,4 +1,4 @@
-name: gmd-seed-wfl-pr-title-check
+name: gmd-seed-pr-title-check-wfl
 
 # Validates that a PR title matches a required pattern (default: ticket-number
 # prefixed, e.g. "[PROJ-123] Short description"). Swap `pr_title_regexp` for

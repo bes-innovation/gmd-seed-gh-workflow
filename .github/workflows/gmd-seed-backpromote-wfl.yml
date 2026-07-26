@@ -1,15 +1,15 @@
-name: gmd-seed-wfl-backpromote
+name: gmd-seed-backpromote-wfl
 
 # Opens a PR from main back into develop after a successful PROD deploy, so a
 # hotfix committed to main (Capgemini hotfix track) gets synced back into the
 # ongoing feature line (Cloud Gaia). GDM Release Plan Fase 4-5.
 #
-# Caller triggers this as a follow-up job after gmd-seed-wfl-sf-deploy
+# Caller triggers this as a follow-up job after gmd-seed-sf-deploy-wfl
 # succeeds against the `prod` environment, e.g.:
 #
 #   backpromote:
 #     needs: deploy-prod
-#     uses: bes-innovation/gmd-seed-gh-workflow/.github/workflows/gmd-seed-wfl-backpromote.yml@v1
+#     uses: bes-innovation/gmd-seed-gh-workflow/.github/workflows/gmd-seed-backpromote-wfl.yml@v1
 
 on:
   workflow_call:
