@@ -1,0 +1,23 @@
+# Reference only -- files starting with "_" are ignored by
+# bootstrap-project.yml. Copy this to <repo-name>.yaml to provision a
+# real project. See README.md in this folder for the full schema.
+
+repoName: example-project
+description: "Example Salesforce project"
+visibility: public
+
+environments:
+  - name: qa
+    requiredReviewers: false
+  - name: uat
+    requiredReviewers: false
+  - name: prod
+    requiredReviewers: true
+
+branchProtection:
+  - branch: development
+    requiredStatusChecks: ["validate"]
+    requiredApprovingReviewCount: 1
+  - branch: main
+    requiredStatusChecks: []
+    requiredApprovingReviewCount: 1

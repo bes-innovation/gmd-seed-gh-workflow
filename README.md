@@ -10,6 +10,11 @@ instead of re-implementing auth/deploy/retrieve logic in their own workflows.
 - `.github/workflows/` — reusable workflows (`workflow_call`) that orchestrate the
   actions above into complete jobs. Must stay flat — GitHub only discovers
   `workflow_call` workflows directly inside `.github/workflows/`, not in subfolders.
+- `projects/` — one `<repo-name>.yaml` per new Salesforce project. Merging a
+  config here auto-provisions that repo (from
+  [`salesforce-project-template`](https://github.com/bes-innovation/salesforce-project-template))
+  plus its environments and branch protection, via `bootstrap-project.yml`.
+  See `projects/README.md` for the schema.
 
 ## Target architecture
 

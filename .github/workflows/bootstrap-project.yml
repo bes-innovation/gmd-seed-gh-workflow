@@ -1,0 +1,90 @@
+name: Bootstrap Salesforce Project
+
+# Runs automatically whenever projects/*.yaml changes on main. Idempotent:
+# re-running against an existing repo skips creation and just re-applies
+# environments and branch protection, so a follow-up config edit is safe
+# to merge again.
+#
+# Needs an ORG_ADMIN_TOKEN secret (PAT with repo-creation rights in the
+# org) -- the default GITHUB_TOKEN can't create new repositories.
+
+on:
+  push:
+    branches: [main]
+    paths: ['projects/*.yaml']
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Detect changed project configs
+        id: changed
+        run: |
+          git diff --name-only HEAD^ HEAD -- 'projects/*.yaml' \
+            | grep -v '/_' > changed-files.txt || true
+          echo "Changed configs:"
+          cat changed-files.txt
+
+      - name: Provision each changed project
+        env:
+          GH_TOKEN: ${{ secrets.ORG_ADMIN_TOKEN }}
+        run: |
+          while IFS= read -r FILE; do
+            [ -z "$FILE" ] && continue
+            echo "::group::Provisioning from $FILE"
+
+            REPO_NAME=$(yq '.repoName' "$FILE")
+            DESCRIPTION=$(yq '.description // ""' "$FILE")
+            VISIBILITY=$(yq '.visibility // "public"' "$FILE")
+            FULL_REPO="bes-innovation/$REPO_NAME"
+
+            if gh repo view "$FULL_REPO" >/dev/null 2>&1; then
+              echo "Repo $FULL_REPO already exists -- skipping creation, will still sync environments/branch protection"
+            else
+              gh repo create "$FULL_REPO" \
+                --template bes-innovation/salesforce-project-template \
+                --"$VISIBILITY" \
+                --description "$DESCRIPTION"
+              echo "Created $FULL_REPO from template"
+            fi
+
+            ENV_COUNT=$(yq '.environments // [] | length' "$FILE")
+            for i in $(seq 0 $((ENV_COUNT - 1))); do
+              [ "$ENV_COUNT" = "0" ] && break
+              ENV_NAME=$(yq ".environments[$i].name" "$FILE")
+              gh api "repos/$FULL_REPO/environments/$ENV_NAME" -X PUT >/dev/null
+              echo "Environment ready: $ENV_NAME"
+            done
+
+            BP_COUNT=$(yq '.branchProtection // [] | length' "$FILE")
+            for i in $(seq 0 $((BP_COUNT - 1))); do
+              [ "$BP_COUNT" = "0" ] && break
+              BRANCH=$(yq ".branchProtection[$i].branch" "$FILE")
+              REVIEWS=$(yq ".branchProtection[$i].requiredApprovingReviewCount // 1" "$FILE")
+              CHECKS_JSON=$(yq -o=json ".branchProtection[$i].requiredStatusChecks // []" "$FILE")
+              PAYLOAD=$(jq -n --argjson checks "$CHECKS_JSON" --argjson reviews "$REVIEWS" '{
+                required_status_checks: { strict: true, contexts: $checks },
+                enforce_admins: true,
+                required_pull_request_reviews: { required_approving_review_count: $reviews },
+                restrictions: null
+              }')
+              echo "$PAYLOAD" | gh api "repos/$FULL_REPO/branches/$BRANCH/protection" -X PUT --input - >/dev/null
+              echo "Branch protection applied: $BRANCH"
+            done
+
+            {
+              echo "## Provisioned \`$FULL_REPO\`"
+              echo ""
+              echo "Manual follow-ups still needed:"
+              echo "- Set SFDX_USERNAME / SFDX_CLIENT_ID / SFDX_INSTANCE_URL / SFDX_JWT_KEY / TEAMS_WEBHOOK_URL on each environment"
+              echo "- Assign actual required reviewers on environments marked \`requiredReviewers: true\`"
+              echo ""
+            } >> "$GITHUB_STEP_SUMMARY"
+
+            echo "::endgroup::"
+          done < changed-files.txt
