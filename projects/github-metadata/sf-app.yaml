@@ -14,9 +14,9 @@ branchProtection:
   - branch: develop
     requiredStatusChecks: []
     requiredApprovingReviewCount: 0
-  - branch: staging
+  - branch: release/**
     requiredStatusChecks: []
-    requiredApprovingReviewCount: 0    
+    requiredApprovingReviewCount: 0
   - branch: main
     requiredStatusChecks: []
     requiredApprovingReviewCount: 0

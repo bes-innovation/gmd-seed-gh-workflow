@@ -24,7 +24,7 @@ description: "Short description" # optional
 visibility: public               # optional, "public" or "private" (default: public)
 
 environments:                    # optional, list of GitHub Environments to create
-  - name: qa
+  - name: integration
     requiredReviewers: false
   - name: uat
     requiredReviewers: false
@@ -35,13 +35,23 @@ environments:                    # optional, list of GitHub Environments to crea
                                    # follow-ups" below.
 
 branchProtection:                 # optional, list of branch rules to apply
-  - branch: development
-    requiredStatusChecks: ["validate"]
+  - branch: develop
+    requiredStatusChecks: []
+    requiredApprovingReviewCount: 1
+  - branch: release/**            # wildcard -- see note below
+    requiredStatusChecks: []
     requiredApprovingReviewCount: 1
   - branch: main
     requiredStatusChecks: []
     requiredApprovingReviewCount: 1
 ```
+
+A `branch` entry containing `*` is treated as a pattern (e.g. `release/**`
+matches any `release/1.4.0` cut later) and is applied as a GitHub Ruleset
+instead of classic branch protection -- the classic API only works on one
+already-existing branch, which a not-yet-cut release branch isn't. Rulesets
+match the pattern automatically as matching branches get created, no
+per-release config change needed.
 
 ## Manual follow-ups (not automated)
 

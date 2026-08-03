@@ -79,6 +79,38 @@ jobs:
               REVIEWS=$(yq ".branchProtection[$i].requiredApprovingReviewCount // 1" "$FILE")
               CHECKS_JSON=$(yq -o=json ".branchProtection[$i].requiredStatusChecks // []" "$FILE")
 
+              if [[ "$BRANCH" == *"*"* ]]; then
+                # Wildcard pattern (e.g. release/**) -- there's no single
+                # branch to create or protect (release/1.4.0 etc. don't
+                # exist yet and are cut on demand later), and the classic
+                # branch-protection API only works against one existing
+                # branch. Use a Ruleset instead, which matches the pattern
+                # and applies automatically to any branch created later.
+                RULESET_ID=$(gh api "repos/$FULL_REPO/rulesets" --jq ".[] | select(.name==\"$BRANCH\") | .id" | head -1)
+                PAYLOAD=$(jq -n --argjson reviews "$REVIEWS" --arg pattern "refs/heads/$BRANCH" --arg name "$BRANCH" '{
+                  name: $name,
+                  target: "branch",
+                  enforcement: "active",
+                  conditions: { ref_name: { include: [$pattern], exclude: [] } },
+                  rules: [
+                    { type: "pull_request", parameters: {
+                        required_approving_review_count: $reviews,
+                        dismiss_stale_reviews_on_push: false,
+                        require_code_owner_review: false,
+                        require_last_push_approval: false,
+                        required_review_thread_resolution: false
+                    } }
+                  ]
+                }')
+                if [ -n "$RULESET_ID" ]; then
+                  echo "$PAYLOAD" | gh api "repos/$FULL_REPO/rulesets/$RULESET_ID" -X PUT --input - >/dev/null
+                else
+                  echo "$PAYLOAD" | gh api "repos/$FULL_REPO/rulesets" -X POST --input - >/dev/null
+                fi
+                echo "Ruleset applied: $BRANCH"
+                continue
+              fi
+
               # A template repo's clone only ever includes its default branch
               # -- create any other protected branch here, pointed at the
               # same initial commit, before protecting it.

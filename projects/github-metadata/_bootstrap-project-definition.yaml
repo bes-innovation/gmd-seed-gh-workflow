@@ -7,7 +7,7 @@ description: "Bootstrap Salesforce project"
 visibility: public
 
 environments:
-  - name: qa
+  - name: integration
     requiredReviewers: false
   - name: uat
     requiredReviewers: false
@@ -15,8 +15,15 @@ environments:
     requiredReviewers: true
 
 branchProtection:
-  - branch: development
-    requiredStatusChecks: ["validate"]
+  - branch: develop
+    requiredStatusChecks: []
+    requiredApprovingReviewCount: 1
+  # Wildcard pattern -- matches any release/x.y.z cut later (they don't
+  # exist yet at provisioning time). Applied via a GitHub Ruleset instead
+  # of classic branch protection, since that API only works on one
+  # already-existing branch.
+  - branch: release/**
+    requiredStatusChecks: []
     requiredApprovingReviewCount: 1
   - branch: main
     requiredStatusChecks: []
