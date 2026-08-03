@@ -1,7 +1,3 @@
-# Reference only -- files starting with "_" are ignored by
-# gmd-seed-bootstrap-project-wfl.yml. Copy this to <repo-name>.yaml to
-# provision a real project. See README.md in this folder for the full schema.
-
 repoName: sf-app
 description: "Sf App"
 visibility: public
