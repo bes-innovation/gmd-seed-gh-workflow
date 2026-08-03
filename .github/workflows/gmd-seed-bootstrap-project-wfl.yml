@@ -51,6 +51,17 @@ jobs:
                 --"$VISIBILITY" \
                 --description "$DESCRIPTION"
               echo "Created $FULL_REPO from template"
+
+              # Template content copy is async -- gh repo create can return
+              # before the default branch actually has a commit, which 409s
+              # the branch-protection step below ("Git Repository is empty").
+              # Poll until it's there.
+              DEFAULT_BRANCH=$(gh api "repos/$FULL_REPO" --jq '.default_branch')
+              for attempt in $(seq 1 10); do
+                gh api "repos/$FULL_REPO/git/refs/heads/$DEFAULT_BRANCH" >/dev/null 2>&1 && break
+                echo "Waiting for template content to populate (attempt $attempt/10)..."
+                sleep 3
+              done
             fi
 
             ENV_COUNT=$(yq '.environments // [] | length' "$FILE")
@@ -69,8 +80,8 @@ jobs:
               CHECKS_JSON=$(yq -o=json ".branchProtection[$i].requiredStatusChecks // []" "$FILE")
 
               # A template repo's clone only ever includes its default branch
-              # (development) -- create any other protected branch here,
-              # pointed at the same initial commit, before protecting it.
+              # -- create any other protected branch here, pointed at the
+              # same initial commit, before protecting it.
               if ! gh api "repos/$FULL_REPO/branches/$BRANCH" >/dev/null 2>&1; then
                 DEFAULT_BRANCH=$(gh api "repos/$FULL_REPO" --jq '.default_branch')
                 DEFAULT_SHA=$(gh api "repos/$FULL_REPO/git/refs/heads/$DEFAULT_BRANCH" --jq '.object.sha')
