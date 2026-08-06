@@ -53,6 +53,47 @@ already-existing branch, which a not-yet-cut release branch isn't. Rulesets
 match the pattern automatically as matching branches get created, no
 per-release config change needed.
 
+## Branch naming ruleset (not yet automated)
+
+For a multi-squad repo, feature branches should follow
+`feature/dev-<team>/<task-description>` (e.g.
+`feature/dev-cloudgaia/fix-login-redirect`) so ownership is legible from the
+branch name alone. This isn't read or applied by the bootstrap workflow yet
+-- `branchNamingRules` in the schema (see `_bootstrap-project-definition.yaml`)
+is reference-only for now. To apply it by hand on a real repo, create a
+GitHub Ruleset with a `branch_name_pattern` rule:
+
+```json
+{
+  "name": "feature-branch-naming",
+  "target": "branch",
+  "enforcement": "active",
+  "conditions": {
+    "ref_name": {
+      "include": ["refs/heads/feature/**"],
+      "exclude": []
+    }
+  },
+  "rules": [
+    {
+      "type": "branch_name_pattern",
+      "parameters": {
+        "operator": "regex",
+        "pattern": "^feature/dev-[a-z0-9-]+/[a-z0-9-]+$",
+        "negate": false,
+        "name": "feature-dev-team-task"
+      }
+    }
+  ]
+}
+```
+
+Apply with `gh api repos/<owner>/<repo>/rulesets --input <file>.json`
+(needs a JSON file, not YAML -- convert the block above). Verify the
+`conditions.ref_name.include` scoping against GitHub's current docs before
+relying on it; ruleset condition/rule semantics have changed across GitHub
+releases and should be re-checked at the time this is actually applied.
+
 ## Manual follow-ups (not automated)
 
 The bootstrap workflow provisions the repo shell, environments, and

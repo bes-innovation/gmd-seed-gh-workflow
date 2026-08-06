@@ -28,3 +28,15 @@ branchProtection:
   - branch: main
     requiredStatusChecks: []
     requiredApprovingReviewCount: 1
+
+# Reference only -- not yet read/applied by gmd-seed-bootstrap-project-wfl.yml.
+# Documents the intended branch-naming ruleset for multi-squad repos so it can
+# be provisioned (manually via `gh api repos/<owner>/<repo>/rulesets`, or by
+# extending the bootstrap workflow later) without re-deriving the pattern.
+# See README.md "Branch naming ruleset (not yet automated)" for the full
+# GitHub Ruleset API payload this maps to.
+branchNamingRules:
+  - appliesTo: "feature/**"
+    pattern: '^feature/dev-[a-z0-9-]+/[a-z0-9-]+$'
+    example: "feature/dev-cloudgaia/fix-login-redirect"
+    description: "feature/dev-<team>/<task-description>, one squad per <team> segment"
