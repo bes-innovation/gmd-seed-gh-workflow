@@ -1,0 +1,94 @@
+name: gmd-seed-cut-release-wfl
+
+# Creates a release/<version> branch from the source branch (default
+# `develop`). That branch creation is the actual trigger for the caller's
+# own deploy-release.yml (push on release/**), which fires the UAT deploy --
+# this workflow only creates the branch, nothing deploys from here directly.
+#
+# Version defaults to release-drafter's next resolved version, read off the
+# existing running draft release on the source branch (the same draft
+# deploy-integration.yml keeps up to date on every push to develop) --
+# nothing new is drafted here, this only reads it. Pass an explicit
+# `version` to override.
+#
+# Caller wires this up behind its own manual workflow_dispatch so the
+# trigger shows up in that repo's Actions tab, e.g.:
+#
+#   on:
+#     workflow_dispatch:
+#       inputs:
+#         version:
+#           description: "Version to cut (blank = auto-resolve from release-drafter)"
+#           required: false
+#   jobs:
+#     cut-release:
+#       uses: bes-innovation/gmd-seed-gh-workflow/.github/workflows/gmd-seed-cut-release-wfl.yml@v1
+#       with:
+#         version: ${{ inputs.version }}
+#       secrets: inherit
+#
+# To restrict who can actually approve the cut (e.g. to a Release Manager),
+# wrap the caller's job with `environment: <name>` pointing at a GitHub
+# Environment whose protection rules require that person's review -- anyone
+# can trigger workflow_dispatch, but the job pauses for their approval
+# before this workflow runs.
+
+on:
+  workflow_call:
+    inputs:
+      source-branch:
+        description: "Branch to cut the release from"
+        required: false
+        type: string
+        default: "develop"
+      version:
+        description: "Explicit version to cut, e.g. 1.4.0. Leave blank to use release-drafter's next resolved version."
+        required: false
+        type: string
+        default: ""
+    outputs:
+      release-branch:
+        description: "The release branch that was created, e.g. release/1.4.0"
+        value: ${{ jobs.cut.outputs.branch }}
+
+jobs:
+  cut:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      branch: ${{ steps.resolve.outputs.branch }}
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Resolve version and branch name
+        id: resolve
+        run: |
+          VERSION="${{ inputs.version }}"
+          if [ -z "$VERSION" ]; then
+            DRAFT_TAG=$(gh api "repos/${{ github.repository }}/releases" --jq '[.[] | select(.draft==true)][0].tag_name // empty')
+            if [ -z "$DRAFT_TAG" ]; then
+              echo "::error::No 'version' input given and no draft release found on ${{ github.repository }} to resolve one from. Pass 'version' explicitly."
+              exit 1
+            fi
+            VERSION="${DRAFT_TAG#v}"
+          fi
+          BRANCH="release/${VERSION}"
+          echo "Resolved version $VERSION -> $BRANCH"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+
+      - name: Guard against re-cutting an existing release branch
+        run: |
+          if gh api "repos/${{ github.repository }}/git/refs/heads/${{ steps.resolve.outputs.branch }}" >/dev/null 2>&1; then
+            echo "::error::${{ steps.resolve.outputs.branch }} already exists -- bump the version or delete it first if this cut was a mistake."
+            exit 1
+          fi
+
+      - name: Create the release branch from source
+        run: |
+          SHA=$(gh api "repos/${{ github.repository }}/git/refs/heads/${{ inputs.source-branch }}" --jq '.object.sha')
+          gh api "repos/${{ github.repository }}/git/refs" \
+            -f ref="refs/heads/${{ steps.resolve.outputs.branch }}" \
+            -f sha="$SHA"
+          echo "Created ${{ steps.resolve.outputs.branch }} from ${{ inputs.source-branch }} @ $SHA"

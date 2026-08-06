@@ -48,6 +48,7 @@ environment (e.g. Required reviewers on `prod`).
 | `gmd-seed-sf-validate-wfl.yml` | PMD scan + check-only deploy (`sf project deploy validate`) against a target org, no changes made |
 | `gmd-seed-sf-deploy-wfl.yml` | Deploy `force-app` into a target org; optionally validate-then-quick-deploy instead of re-running tests |
 | `gmd-seed-backpromote-wfl.yml` | Opens a PR from `main` back into `develop` after a PROD deploy, so hotfixes sync back into the feature line |
+| `gmd-seed-cut-release-wfl.yml` | Creates a `release/<version>` branch from `develop` (or an override), resolving the version from release-drafter's running draft unless one is given explicitly |
 | `gmd-seed-sf-retrieve-wfl.yml` | Retrieve metadata from an org, upload as a build artifact for review (baseline bootstrap / drift detection, not part of the promotion flow) |
 | `gmd-seed-pr-title-check-wfl.yml` | Validates PR title format (default: ticket-number prefixed, e.g. `[PROJ-123] ...`) |
 
@@ -286,3 +287,49 @@ sf org auth show-sfdx-auth-url --target-org <alias> --no-prompt
 
 Store the output as a repo (or environment) secret — never commit it, never
 print it in a workflow log.
+
+
+
+
+
+take / gaia / kpgm / accenture
+
+
+papeis e responsabilidades:
+  - precisam ser bem definidos.
+
+
+Munda demanda da GDM.
+
+
+Rodrigo
+
+backpromotaion:
+  Chegar no tech lead e falar... sua branch não ta atualizada....
+
+
+Wilson:
+  DevOps.
+
+
+Funcional, dado o que temos hoje...
+
+
+
+hotfix:
+
+
+Login em todas as orgs:
+
+
+2
+
+
+Sintece....
+
+vai ter backpromoation  da main...
+
+
+capgm hotfix...
+
+cloudgaia
